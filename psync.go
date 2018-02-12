@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"sync"
 )
@@ -23,9 +22,9 @@ var (
 
 // Commandline Flags
 var (
-	threads   uint   // number of threads
-	src, dest string // source and destination directory
-	verbose   bool   // verbose flag
+	threads        uint   // number of threads
+	src, dest      string // source and destination directory
+	verbose, quiet bool   // verbose and quiet flags
 )
 
 func main() {
@@ -35,7 +34,7 @@ func main() {
 	// Start dispatcher and copy threads
 	go dispatcher()
 	for i := uint(0); i < threads; i++ {
-		go copy_dir(i)
+		go copyDir(i)
 	}
 
 	// start copying top level directory
@@ -49,6 +48,7 @@ func main() {
 func flags() {
 	flag.UintVar(&threads, "threads", 16, "Number of threads to run in parallel")
 	flag.BoolVar(&verbose, "verbose", false, "Verbose mode")
+	flag.BoolVar(&quiet, "quiet", false, "Quiet mode")
 	flag.Parse()
 
 	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || threads > 1024 {
@@ -91,11 +91,11 @@ func dispatcher() {
 	}
 }
 
-// Function copy_dir receives a directory on the worker channel and copies its
+// Function copyDir receives a directory on the worker channel and copies its
 // content from src to dest. Files are copied sequentially. If a subdirectory
 // is discovered, it is created on the destination side, and then inserted into
 // the work queue through the dispather channel.
-func copy_dir(id uint) {
+func copyDir(id uint) {
 	for {
 		dir := <-wch
 		if verbose {
@@ -103,15 +103,27 @@ func copy_dir(id uint) {
 		}
 		files, err := ioutil.ReadDir(src + dir)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", src+dir, err)
+			}
+			wg.Done()
+			return
 		}
+
 		for _, f := range files {
 			fname := f.Name()
 			if fname == "." || fname == ".." {
 				continue
 			}
 			if f.IsDir() {
-				os.Mkdir(dest+"/"+dir+"/"+fname, 0755)
+				err := os.Mkdir(dest+dir+"/"+fname, 0755)
+				if err != nil {
+					if !quiet {
+						fmt.Fprintf(os.Stderr, "WARNING - could not create directory %s: %s\n",
+							dest+dir+"/"+fname, err)
+					}
+					continue
+				}
 				wg.Add(1)
 				dch <- dir + "/" + fname
 			} else {
@@ -119,7 +131,7 @@ func copy_dir(id uint) {
 					fmt.Printf("[%d] Copying %s%s/%s to %s%s/%s\n",
 						id, src, dir, fname, dest, dir, fname)
 				}
-				copy_file(dir+"/"+fname, f.Mode())
+				copyFile(dir+"/"+fname, f.Mode())
 			}
 		}
 		if verbose {
@@ -129,21 +141,27 @@ func copy_dir(id uint) {
 	}
 }
 
-// Function copy_file copies a file from the source to the destination directory.
-func copy_file(file string, mode os.FileMode) {
+// Function copyFile copies a file from the source to the destination directory.
+func copyFile(file string, mode os.FileMode) {
 	switch {
 
 	case mode&os.ModeSymlink != 0: // symbolic link
 		link, err := os.Readlink(src + file)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - link %s disappeared while copying %s\n", src+file, err)
+			}
+			return
 		}
 		err = os.Symlink(link, dest+file)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - link %s could not be created: %s\n", dest+file, err)
+			}
+			return
 		}
 
-	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0:
+	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0: // special files
 	// TODO: not yet implemented
 
 	default:
@@ -151,21 +169,30 @@ func copy_file(file string, mode os.FileMode) {
 		// open source file for reading
 		rd, err := os.Open(src + file)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - file %s disappeared while copying: %s\n", src+file, err)
+			}
+			return
 		}
 		defer rd.Close()
 
 		// open destination file for writing
 		wr, err := os.Create(dest + file)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
+			}
+			return
 		}
 		defer wr.Close()
 
 		// copy data
 		_, err = io.Copy(wr, rd)
 		if err != nil {
-			log.Fatal(err)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
+			}
+			return
 		}
 	}
 }
