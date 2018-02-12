@@ -16,7 +16,7 @@ psync is invoked as follows:
 	psync [-verbose] [-threads <num>] source destination
 
 	-verbose        - verbose mode, prints the current workload to STDOUT
-	-quiet          - quiet mode, supress warnings
+	-quiet          - quiet mode, suppress warnings
 	-threads <num>  - number of concurrent threads, 1 <= <num> <= 1024, default 16
 	source          - source directory
 	destination     - destination directory

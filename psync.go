@@ -72,7 +72,8 @@ func usage() {
 // Function dispatcher maintains a work list of potentially arbitrary size.
 // Incoming directories (over the dispather channel) will be forwarded to a
 // copy thread through the worker channel, or stored in the work list if no
-// copy thread is available.
+// copy thread is available. For easier memory handling, the work list is
+// treated last-in-first-out.
 func dispatcher() {
 	worklist := make([]string, 0, 1000)
 	var dir string
@@ -94,20 +95,23 @@ func dispatcher() {
 // Function copyDir receives a directory on the worker channel and copies its
 // content from src to dest. Files are copied sequentially. If a subdirectory
 // is discovered, it is created on the destination side, and then inserted into
-// the work queue through the dispather channel.
+// the work queue through the dispatcher channel.
 func copyDir(id uint) {
 	for {
+		// read next directory to handle
 		dir := <-wch
 		if verbose {
 			fmt.Printf("[%d] Handling directory %s%s\n", id, src, dir)
 		}
+
+		// read directory content
 		files, err := ioutil.ReadDir(src + dir)
 		if err != nil {
 			if !quiet {
 				fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", src+dir, err)
 			}
 			wg.Done()
-			return
+			continue
 		}
 
 		for _, f := range files {
@@ -116,6 +120,7 @@ func copyDir(id uint) {
 				continue
 			}
 			if f.IsDir() {
+				// create directory on destination side
 				err := os.Mkdir(dest+dir+"/"+fname, 0755)
 				if err != nil {
 					if !quiet {
@@ -124,9 +129,11 @@ func copyDir(id uint) {
 					}
 					continue
 				}
+				// submit directory to work queue
 				wg.Add(1)
 				dch <- dir + "/" + fname
 			} else {
+				// copy file sequentially
 				if verbose {
 					fmt.Printf("[%d] Copying %s%s/%s to %s%s/%s\n",
 						id, src, dir, fname, dest, dir, fname)
@@ -146,6 +153,7 @@ func copyFile(file string, mode os.FileMode) {
 	switch {
 
 	case mode&os.ModeSymlink != 0: // symbolic link
+		// read link
 		link, err := os.Readlink(src + file)
 		if err != nil {
 			if !quiet {
@@ -153,6 +161,8 @@ func copyFile(file string, mode os.FileMode) {
 			}
 			return
 		}
+
+		// write link to destination
 		err = os.Symlink(link, dest+file)
 		if err != nil {
 			if !quiet {
