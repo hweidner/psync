@@ -25,7 +25,7 @@ Example
 
 Copy all files and subdirectories from /data/src into /data/dest.
 
-	psync -n 8 /data/src /data/dest
+	psync -threads 8 /data/src /data/dest
 
 /data/src and /data/dest must exist and must be directories.
 
@@ -62,7 +62,7 @@ psync uses goroutines for copying files in parallel. By default, 16 copy workers
 are spawned as goroutines, but the number can be adjusted with the -threads switch.
 
 Each worker waits for a directory to be submitted. It then handles all the
-directory entries sequentially. Files a copied one by one to the destination
+directory entries sequentially. Files are copied one by one to the destination
 directory. When subdirectories are discovered, they are created on the destination
 side. Traversal of the subdirecory is then submitted to other workers and thus done
 in parallel to the current workload.

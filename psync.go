@@ -40,8 +40,9 @@ func main() {
 	// start copying top level directory
 	wg.Add(1)
 	dch <- ""
-	wg.Wait() // wait for work queue to get empty
-	// time.Sleep(10 * time.Second)
+
+	// wait for work queue to get empty
+	wg.Wait()
 }
 
 // Function flags parses the command line flags and checks them for sanity.
