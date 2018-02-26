@@ -74,9 +74,10 @@ Limits and TODOs
 psync currently can only handle directories, regular files, and symbolic links.
 Other filesystem entries like devices, sockets or named pipes are silently ignored.
 
-psync has no support for preserving permissions, ownership, or timestamps.
-Destination files are created "as is", according to the current user, group and
-umask.
+psync preserves the Unix permissions (rwx) of the copied files and directories,
+but has currently no support for preserving other permission bits (suid, sticky),
+ownership, or timestamps. Destination files are created "as is", according to the
+current user and group.
 
 psync does currently implement a simple recursive copy, like "cp -r", and not
 a versatile sync algorithm like rsync. There is no check wether a file already

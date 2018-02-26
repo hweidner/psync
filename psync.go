@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"syscall"
 )
 
 // Channels and Synchronization
@@ -30,6 +31,10 @@ var (
 func main() {
 	// parse commandline flags
 	flags()
+
+	// clear umask, so that it does not interfere with explicite permissions
+	// used in os.FileOpen()
+	syscall.Umask(0000)
 
 	// Start dispatcher and copy threads
 	go dispatcher()
@@ -120,9 +125,11 @@ func copyDir(id uint) {
 			if fname == "." || fname == ".." {
 				continue
 			}
+
 			if f.IsDir() {
 				// create directory on destination side
-				err := os.Mkdir(dest+dir+"/"+fname, 0755)
+				perm := f.Mode().Perm()
+				err := os.Mkdir(dest+dir+"/"+fname, perm)
 				if err != nil {
 					if !quiet {
 						fmt.Fprintf(os.Stderr, "WARNING - could not create directory %s: %s\n",
@@ -188,7 +195,8 @@ func copyFile(file string, mode os.FileMode) {
 		defer rd.Close()
 
 		// open destination file for writing
-		wr, err := os.Create(dest + file)
+		perm := mode.Perm()
+		wr, err := os.OpenFile(dest+file, os.O_WRONLY|os.O_CREATE, perm)
 		if err != nil {
 			if !quiet {
 				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
