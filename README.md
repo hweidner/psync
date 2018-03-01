@@ -5,6 +5,20 @@ psync is a tool which copies a directory recursively to another directory.
 Unlike "cp -r", which walks through the files and subdirectories in sequential
 order, psync copies several files concurrently by using threads.
 
+Installation
+------------
+
+You need a Go compiler to install psync from source. Follow the instructions on
+the [Go Installation page](https://golang.org/doc/install), or install from your
+operating system distribution (e.g. ``apt install golang`` on Debian/Ubuntu Linux).
+
+Then install psync with
+
+	go get github.com/hweidner/psync
+
+This command will fetch psync, compile and install it in the directory
+$HOME/go/bin, or $GOPATH/bin if GOPATH is set.
+
 Usage
 -----
 
@@ -83,6 +97,9 @@ psync does currently implement a simple recursive copy, like "cp -r", and not
 a versatile sync algorithm like rsync. There is no check wether a file already
 exists in the destination, nor its content and timestamps. Existing files on the
 destination side are not deleted when they don't exist on the source side.
+
+psync is being developed under Linux (Debian, Ubuntu, CentOS). It should work on
+other distributions and operating systems, but this has not been tested.
 
 License
 -------
