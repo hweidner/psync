@@ -12,6 +12,7 @@ import (
 	"os"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // Channels and Synchronization
@@ -26,6 +27,7 @@ var (
 	threads        uint   // number of threads
 	src, dest      string // source and destination directory
 	verbose, quiet bool   // verbose and quiet flags
+	times, owner   bool   // preserve timestamps and owner flag
 )
 
 func main() {
@@ -55,6 +57,8 @@ func flags() {
 	flag.UintVar(&threads, "threads", 16, "Number of threads to run in parallel")
 	flag.BoolVar(&verbose, "verbose", false, "Verbose mode")
 	flag.BoolVar(&quiet, "quiet", false, "Quiet mode")
+	flag.BoolVar(&times, "times", false, "Preserve time stamps")
+	flag.BoolVar(&owner, "owner", false, "Preserve user/group ownership (root only)")
 	flag.Parse()
 
 	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || threads > 1024 {
@@ -137,6 +141,16 @@ func copyDir(id uint) {
 					}
 					continue
 				}
+
+				// preserve user and group of the newly created directory
+				if owner {
+					preserveOwner(dest+dir+"/"+fname, f, "directory")
+				}
+				// setting the timestamps of the newly created directory seems not to work in Go
+				// if times {
+				// 	preserveTimes(dest+dir+"/"+fname, f, "directory")
+				// }
+
 				// submit directory to work queue
 				wg.Add(1)
 				dch <- dir + "/" + fname
@@ -146,7 +160,7 @@ func copyDir(id uint) {
 					fmt.Printf("[%d] Copying %s%s/%s to %s%s/%s\n",
 						id, src, dir, fname, dest, dir, fname)
 				}
-				copyFile(dir+"/"+fname, f.Mode())
+				copyFile(dir+"/"+fname, f)
 			}
 		}
 		if verbose {
@@ -157,7 +171,8 @@ func copyDir(id uint) {
 }
 
 // Function copyFile copies a file from the source to the destination directory.
-func copyFile(file string, mode os.FileMode) {
+func copyFile(file string, f os.FileInfo) {
+	mode := f.Mode()
 	switch {
 
 	case mode&os.ModeSymlink != 0: // symbolic link
@@ -178,6 +193,15 @@ func copyFile(file string, mode os.FileMode) {
 			}
 			return
 		}
+
+		// preserve owner of symbolic link
+		if owner {
+			preserveOwner(dest+file, f, "link")
+		}
+		// preserving the timestamps of links seems not be supported in Go
+		// if times {
+		// 	preserveTimes(dest+file, f, "link")
+		// }
 
 	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0: // special files
 	// TODO: not yet implemented
@@ -213,5 +237,49 @@ func copyFile(file string, mode os.FileMode) {
 			}
 			return
 		}
+
+		if owner {
+			preserveOwner(dest+file, f, "file")
+		}
+		if times {
+			preserveTimes(dest+file, f, "file")
+		}
+
+	}
+}
+
+// Function preserveOwner transfers the ownership information from the source to
+// the destination file/directory.
+func preserveOwner(name string, f os.FileInfo, ftype string) {
+	if stat, ok := f.Sys().(*syscall.Stat_t); ok {
+		uid := int(stat.Uid)
+		gid := int(stat.Gid)
+
+		var err error
+		if ftype == "link" {
+			err = syscall.Lchown(name, uid, gid)
+		} else {
+			err = os.Chown(name, uid, gid)
+		}
+
+		if err != nil && !quiet {
+			fmt.Fprintf(os.Stderr, "WARNING - could not change ownership of %s %s: %s\n",
+				ftype, name, err)
+		}
+	}
+}
+
+// Function preserveTimes transfers the access and modification timestamp from
+// the source to the destination file/directory.
+func preserveTimes(name string, f os.FileInfo, ftype string) {
+	mtime := f.ModTime()
+	atime := mtime
+	if stat, ok := f.Sys().(*syscall.Stat_t); ok {
+		atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	}
+	err := os.Chtimes(name, atime, mtime)
+	if err != nil && !quiet {
+		fmt.Fprintf(os.Stderr, "WARNING - could not change timestamps for %s %s: %s\n",
+			ftype, name, err)
 	}
 }

@@ -13,11 +13,13 @@ Usage
 
 psync is invoked as follows:
 
-	psync [-verbose] [-threads <num>] source destination
+	psync [-verbose|-quiet] [-threads <num>] [-owner] [-times] source destination
 
 	-verbose        - verbose mode, prints the current workload to STDOUT
 	-quiet          - quiet mode, suppress warnings
 	-threads <num>  - number of concurrent threads, 1 <= <num> <= 1024, default 16
+	-owner          - preserve ownership (user / group)
+	-times          - preserve timestamps (atime / mtime)
 	source          - source directory
 	destination     - destination directory
 
@@ -73,9 +75,12 @@ psync currently can only handle directories, regular files, and symbolic links.
 Other filesystem entries like devices, sockets or named pipes are silently ignored.
 
 psync preserves the Unix permissions (rwx) of the copied files and directories,
-but has currently no support for preserving other permission bits (suid, sticky),
-ownership, or timestamps. Destination files are created "as is", according to the
-current user and group.
+but has currently no support for preserving other permission bits (suid, sticky).
+
+When using the according options, psync tries to preserve the ownership
+(user/group) and/or the access and modification time stamps. Preserve ownership
+does only work when psync is running under the root user account. Preserving the
+time stamps does only work for regular files.
 
 psync does currently implement a simple recursive copy, like "cp -r", and not
 a versatile sync algorithm like rsync. There is no check wether a file already
