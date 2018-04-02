@@ -96,7 +96,8 @@ but has currently no support for preserving other permission bits (suid, sticky)
 When using the according options, psync tries to preserve the ownership
 (user/group) and/or the access and modification time stamps. Preserve ownership
 does only work when psync is running under the root user account. Preserving the
-time stamps does only work for regular files.
+time stamps does only work for regular files and directories, not for symbolic
+links.
 
 psync does currently implement a simple recursive copy, like "cp -r", and not
 a versatile sync algorithm like rsync. There is no check wether a file already

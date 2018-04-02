@@ -142,15 +142,6 @@ func copyDir(id uint) {
 					continue
 				}
 
-				// preserve user and group of the newly created directory
-				if owner {
-					preserveOwner(dest+dir+"/"+fname, f, "directory")
-				}
-				// setting the timestamps of the newly created directory seems not to work in Go
-				// if times {
-				// 	preserveTimes(dest+dir+"/"+fname, f, "directory")
-				// }
-
 				// submit directory to work queue
 				wg.Add(1)
 				dch <- dir + "/" + fname
@@ -161,6 +152,22 @@ func copyDir(id uint) {
 						id, src, dir, fname, dest, dir, fname)
 				}
 				copyFile(dir+"/"+fname, f)
+			}
+		}
+		finfo, err := os.Stat(src + dir)
+		if err != nil {
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "WARNING - could not read fileinfo of directory %s: %s\n",
+					dest+dir, err)
+			}
+		} else {
+			// preserve user and group of the destination directory
+			if owner {
+				preserveOwner(dest+dir, finfo, "directory")
+			}
+			// setting the timestamps of the destination directory
+			if times {
+				preserveTimes(dest+dir, finfo, "directory")
 			}
 		}
 		if verbose {
@@ -199,9 +206,11 @@ func copyFile(file string, f os.FileInfo) {
 			preserveOwner(dest+file, f, "link")
 		}
 		// preserving the timestamps of links seems not be supported in Go
-		// if times {
-		// 	preserveTimes(dest+file, f, "link")
-		// }
+		// TODO: it should be possible by using the futimesat system call,
+		// see https://github.com/golang/go/issues/3951
+		//if times {
+		//	preserveTimes(dest+file, f, "link")
+		//}
 
 	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0: // special files
 	// TODO: not yet implemented
