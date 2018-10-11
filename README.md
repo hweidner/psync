@@ -72,6 +72,11 @@ physical hard disk. Even sequential copies suffer from the frequent hard disk he
 movements which are needed to read and write concurrently on/to the same disk.
 Parallel copying even increases the amount of head movements.
 
+Never use psync when writing to a FAT/VFAT/exFAT file system! Those file systems
+are best written sequentially. Parallel write access will be slower, and leads
+to inefficient data structures and fragmentation. Reading from those file systems
+with psync should be efficient.
+
 How it works
 ------------
 
