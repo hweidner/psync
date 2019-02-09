@@ -15,11 +15,14 @@ import (
 	"time"
 )
 
-// Channels and Synchronization
+const BUFSIZE = 64 * 1024 // 64Kb buffer for copying
+
+// Buffer, Channels and Synchronization
 var (
-	dch = make(chan string, 100) // dispatcher channel - get work into work queue
-	wch = make(chan string, 100) // worker channel - get work from work queue to copy thread
-	wg  sync.WaitGroup           // waitgroup for work queue length
+	buffer [][BUFSIZE]byte
+	dch    = make(chan string, 100) // dispatcher channel - get work into work queue
+	wch    = make(chan string, 100) // worker channel - get work from work queue to copy thread
+	wg     sync.WaitGroup           // waitgroup for work queue length
 )
 
 // Commandline Flags
@@ -37,6 +40,9 @@ func main() {
 	// clear umask, so that it does not interfere with explicite permissions
 	// used in os.FileOpen()
 	syscall.Umask(0000)
+
+	// initialize buffers
+	buffer = make([][BUFSIZE]byte, threads)
 
 	// Start dispatcher and copy threads
 	go dispatcher()
@@ -151,7 +157,7 @@ func copyDir(id uint) {
 					fmt.Printf("[%d] Copying %s%s/%s to %s%s/%s\n",
 						id, src, dir, fname, dest, dir, fname)
 				}
-				copyFile(dir+"/"+fname, f)
+				copyFile(id, dir+"/"+fname, f)
 			}
 		}
 		finfo, err := os.Stat(src + dir)
@@ -178,7 +184,7 @@ func copyDir(id uint) {
 }
 
 // Function copyFile copies a file from the source to the destination directory.
-func copyFile(file string, f os.FileInfo) {
+func copyFile(id uint, file string, f os.FileInfo) {
 	mode := f.Mode()
 	switch {
 
@@ -239,7 +245,7 @@ func copyFile(file string, f os.FileInfo) {
 		defer wr.Close()
 
 		// copy data
-		_, err = io.Copy(wr, rd)
+		_, err = io.CopyBuffer(wr, rd, buffer[id][:])
 		if err != nil {
 			if !quiet {
 				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
