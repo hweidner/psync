@@ -15,7 +15,8 @@ import (
 	"time"
 )
 
-const BUFSIZE = 64 * 1024 // 64Kb buffer for copying
+// BUFSIZE defines the size of the buffer used for copying. It is currently 64kB.
+const BUFSIZE = 64 * 1024
 
 // Buffer, Channels and Synchronization
 var (
