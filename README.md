@@ -92,6 +92,36 @@ directory. When subdirectories are discovered, they are created on the destinati
 side. Traversal of the subdirecory is then submitted to other workers and thus done
 in parallel to the current workload.
 
+Performance values
+------------------
+
+Here are some performance values comparing psync to cp and rsync when copying
+a large directory structure with many small files from a local file system to
+an NFS share.
+
+The NFS server has an AMD E-350 CPU, 8 GB of RAM, a 2TB hard drive (WD Green
+series) running Debian GNU/Linux 10 (Linux kernel 4.19). The NFS export is
+a logical volume on the HDD with ext4 file system. The NFS export options are:
+rw,no_root_squash,async,no_subtree_check.
+
+The client is a workstation with AMD Ryzen 7 1700 CPU, 64 GB of RAM, running
+Ubuntu 18.04 LTS with HWE stack (Linux kernel 5.3). The data to copy is located
+on a 1TB SATA SSD with XFS, and buffered in memory. The NFS mount options are:
+fstype=nfs,vers=3,soft,intr,async.
+
+The hosts are connected over ethernet with 1 Gbit/s, ping latency is 160µs.
+
+The data is an extracted linux kernel source code 4.15.2 tarball, containing
+62273 files and 32 symbolic links in 4377 directories, summing up to 892 MB
+(as seen by "du -s"). It is copied from the workstation to the server over NFS.
+
+The options for the three commands are selected comparably. They copy the files
+and links recursively and preserve permissions, but no ownership or time stamps.
+
+    cp -r SRC DEST         1m50,288s   8,09 MB/s
+    rsync -rl SRC/ DEST/   3m05,479s   4,81 MB/s
+    psync SRC DEST         0m23,398s  38,12 MB/s
+
 Limits and TODOs
 ----------------
 
@@ -113,7 +143,9 @@ exists in the destination, nor its content and timestamps. Existing files on the
 destination side are not deleted when they don't exist on the source side.
 
 psync is being developed under Linux (Debian, Ubuntu, CentOS). It should work on
-other distributions and operating systems, but this has not been tested.
+other distributions, but this has not been tested. It does currently not compile
+for Windows, Darwin (MacOS), NetBSD and FreeBSD (but this should easily be
+fixed.)
 
 License
 -------
