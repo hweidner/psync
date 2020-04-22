@@ -5,11 +5,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -32,11 +34,17 @@ var (
 	src, dest      string // source and destination directory
 	verbose, quiet bool   // verbose and quiet flags
 	times, owner   bool   // preserve timestamps and owner flag
+	createDest     bool   // create dest dir, if neccessary
+	noClobber      bool   // check that dest dir is empty
+	interactive    bool   // prompt before writing to existing directories
+	bufferSize     int    // size of copy buffer
 )
 
 func main() {
 	// parse commandline flags
 	flags()
+
+	manageDestDir(dest)
 
 	// clear umask, so that it does not interfere with explicite permissions
 	// used in os.FileOpen()
@@ -59,6 +67,53 @@ func main() {
 	wg.Wait()
 }
 
+func askUser(questionFormat string, param ...interface{}) bool {
+	fmt.Printf(questionFormat, param...)
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+	text = strings.TrimSuffix(text, "\n")
+	return text != "y"
+}
+
+// manageDestDir checks for dest dir and creates it if neccessary
+func manageDestDir(dir string) {
+
+	stat, err := os.Stat(dest)
+	if os.IsNotExist(err) {
+		if interactive {
+			if askUser("destination dir '%s' does not exist, continue? (y/n) : ", dir) {
+				os.Exit(1)
+			} else {
+				createDest = true
+			}
+		}
+		if createDest {
+			err := os.MkdirAll(dest, os.FileMode(0777))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "unable to create destination dir '%s' - %s\n", dest, err.Error())
+			}
+			return
+		}
+		fmt.Fprintf(os.Stderr, "destination dir '%s' does not exist, use '-create' to create it manually\n", dest)
+		os.Exit(1)
+	}
+
+	if !stat.IsDir() {
+		fmt.Fprintf(os.Stderr, "destination '%s' exists, but is not a directory\n", dir)
+		os.Exit(1)
+	}
+
+	if noClobber {
+		fmt.Fprintf(os.Stderr, "destination dir '%s' exists, but is not empty\n", dir)
+		os.Exit(1)
+	}
+
+	_, err = ioutil.ReadDir(dir)
+	if err == nil && interactive && askUser("destination dir '%s' is not empty, continue? (y/n) : ", dir) {
+		os.Exit(1)
+	}
+}
+
 // Function flags parses the command line flags and checks them for sanity.
 func flags() {
 	flag.UintVar(&threads, "threads", 16, "Number of threads to run in parallel")
@@ -66,6 +121,9 @@ func flags() {
 	flag.BoolVar(&quiet, "quiet", false, "Quiet mode")
 	flag.BoolVar(&times, "times", false, "Preserve time stamps")
 	flag.BoolVar(&owner, "owner", false, "Preserve user/group ownership (root only)")
+	flag.BoolVar(&createDest, "create", false, "Create a non existent destination dir with default permissions")
+	flag.BoolVar(&noClobber, "no-clobber", false, "Do not write to a non empty directory (overrides -interactive option)")
+	flag.BoolVar(&interactive, "interactive", false, "Prompt before writing to non empty directory or for creating a missing destination dir")
 	flag.Parse()
 
 	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || threads > 1024 {
@@ -75,6 +133,7 @@ func flags() {
 	if threads == 0 {
 		threads = 16
 	}
+
 	src = flag.Arg(0)
 	dest = flag.Arg(1)
 }

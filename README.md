@@ -8,6 +8,16 @@ psync is a tool which copies a directory recursively to another directory.
 Unlike "cp -r", which walks through the files and subdirectories in sequential
 order, psync copies several files concurrently by using threads.
 
+psync was written to speed up copying of large trees to or from a network
+file system like GlusterFS, Ceph, WebDAV or NFS. Operations on such file
+systems are usually latency bound, especially with small files.
+Parallel execution can help to utilize the bandwidth better and avoid that
+the latencies sum up, as this is the case in sequential operations.
+
+Currently, psync does only copy directory trees, similar to "cp -r". A "sync"
+mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALS.md) on how psync
+finally may look like.
+
 Installation
 ------------
 
@@ -145,7 +155,13 @@ destination side are not deleted when they don't exist on the source side.
 psync is being developed under Linux (Debian, Ubuntu, CentOS). It should work on
 other distributions, but this has not been tested. It does currently not compile
 for Windows, Darwin (MacOS), NetBSD and FreeBSD (but this should easily be
-fixed.)
+fixed).
+
+Contributing
+------------
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to the
+development of psync.
 
 License
 -------

@@ -15,6 +15,9 @@ psync is invoked as follows:
 
 	psync [-verbose|-quiet] [-threads <num>] [-owner] [-times] source destination
 
+	-create         - create a non existent destination dir with default permissions
+	-interactive    - prompt before writing to non empty directory or for creating a missing destination dir"
+	-no-clobber     - check destination to be empty before syncing (overrides -interactive option)
 	-verbose        - verbose mode, prints the current workload to STDOUT
 	-quiet          - quiet mode, suppress warnings
 	-threads <num>  - number of concurrent threads, 1 <= <num> <= 1024, default 16
