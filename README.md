@@ -15,7 +15,7 @@ Parallel execution can help to utilize the bandwidth better and avoid that
 the latencies sum up, as this is the case in sequential operations.
 
 Currently, psync does only copy directory trees, similar to "cp -r". A "sync"
-mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALD.md) on how psync
+mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALS.md) on how psync
 finally may look like.
 
 Installation

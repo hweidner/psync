@@ -8,7 +8,7 @@ build in implicitely (without an option), or get another option name. More
 functions and options might appear.
 
 	psync [-verbose|-quiet] [-dryrun] [-threads <num>] [-owner] [-times]
-	[-sync] [-delete] [-update] source destination
+	      [-sync] [-delete] [-update] source destination
 
 	-verbose        - verbose mode, prints the current workload to STDOUT
 	-quiet          - quiet mode, suppress warnings
