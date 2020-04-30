@@ -7,7 +7,7 @@ None of these options are fixed yet. Plans for new functions might be dropped,
 build in implicitely (without an option), or get another option name. More
 functions and options might appear.
 
-	psync [-verbose|-quiet] [-dryrun] [-threads <num>] [-owner] [-times]
+	psync [-verbose|-quiet] [-dryrun] [-threads <num>] [-owner] [-times] [-create]
 	      [-sync] [-delete] [-update] source destination
 
 	-verbose        - verbose mode, prints the current workload to STDOUT
@@ -16,7 +16,8 @@ functions and options might appear.
 	-threads <num>  - number of concurrent threads, 1 <= <num> <= 1024, default 16
 	-owner          - preserve ownership (user / group)
 	-times          - preserve timestamps (atime / mtime)
-	-sync			- copy in "sync" mode, e.g. copy only files and directories that
+	-create         - create destination directory, if needed (with standard permissions)
+	-sync           - copy in "sync" mode, e.g. copy only files and directories that
 	                  do not yet exist on the destination side, or exist but differ in
 	                  size or time stamp (mtime).
 	-delete         - in sync mode, delete files and directories that exist on the
@@ -26,4 +27,3 @@ functions and options might appear.
 	                  This option has no effect on directories.
 	source          - source directory
 	destination     - destination directory
-

@@ -32,11 +32,15 @@ var (
 	src, dest      string // source and destination directory
 	verbose, quiet bool   // verbose and quiet flags
 	times, owner   bool   // preserve timestamps and owner flag
+	create         bool   // create destination directory flag
 )
 
 func main() {
 	// parse commandline flags
 	flags()
+
+	// check or create the destination directory
+	prepareDestDir()
 
 	// clear umask, so that it does not interfere with explicite permissions
 	// used in os.FileOpen()
@@ -66,6 +70,7 @@ func flags() {
 	flag.BoolVar(&quiet, "quiet", false, "Quiet mode")
 	flag.BoolVar(&times, "times", false, "Preserve time stamps")
 	flag.BoolVar(&owner, "owner", false, "Preserve user/group ownership (root only)")
+	flag.BoolVar(&create, "create", false, "Create destination directory, if needed (with standard permissions)")
 	flag.Parse()
 
 	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || threads > 1024 {
@@ -79,11 +84,39 @@ func flags() {
 	dest = flag.Arg(1)
 }
 
-// Funktion usage prints a message about how to use psync, and exits.
+// Function usage prints a message about how to use psync, and exits.
 func usage() {
 	fmt.Println("Usage: psync [options] source destination")
 	flag.Usage()
 	os.Exit(1)
+}
+
+// Function prepareDestDir checks for the existance of the destination,
+// or creates it if the flag '-create' is set.
+func prepareDestDir() {
+	if create {
+		// create destination directory
+		err := os.MkdirAll(dest, os.FileMode(0777))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR - unable to create destination dir %s: %s\n", dest, err)
+			os.Exit(1)
+		}
+	} else {
+		// Test the existance of destination directory prior to syncing
+		stat, err := os.Stat(dest)
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "ERROR - destination directory %s does not exist: %s.\nUse '-create' to create it.\n", dest, err)
+			os.Exit(1)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR - cannot stat() destination directory %s: %s.\n", dest, err)
+			os.Exit(1)
+		}
+		if !stat.IsDir() {
+			fmt.Fprintf(os.Stderr, "ERROR - destination %s exists, but is not a directory\n", dest)
+			os.Exit(1)
+		}
+	}
 }
 
 // Function dispatcher maintains a work list of potentially arbitrary size.

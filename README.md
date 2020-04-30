@@ -37,13 +37,14 @@ Usage
 
 psync is invoked as follows:
 
-	psync [-verbose|-quiet] [-threads <num>] [-owner] [-times] source destination
+	psync [-verbose|-quiet] [-threads <num>] [-owner] [-times] [-create] source destination
 
 	-verbose        - verbose mode, prints the current workload to STDOUT
 	-quiet          - quiet mode, suppress warnings
 	-threads <num>  - number of concurrent threads, 1 <= <num> <= 1024, default 16
 	-owner          - preserve ownership (user / group)
 	-times          - preserve timestamps (atime / mtime)
+	-create         - create destination directory, if needed (with standard permissions)
 	source          - source directory
 	destination     - destination directory
 
