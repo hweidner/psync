@@ -91,7 +91,7 @@ func usage() {
 	os.Exit(1)
 }
 
-// Function prepareDestDir checks for the existance of the destination,
+// Function prepareDestDir checks for the existence of the destination,
 // or creates it if the flag '-create' is set.
 func prepareDestDir() {
 	if create {
@@ -102,7 +102,7 @@ func prepareDestDir() {
 			os.Exit(1)
 		}
 	} else {
-		// Test the existance of destination directory prior to syncing
+		// test the existence of destination directory prior to syncing
 		stat, err := os.Stat(dest)
 		if os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "ERROR - destination directory %s does not exist: %s.\nUse '-create' to create it.\n", dest, err)
