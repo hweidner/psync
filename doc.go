@@ -15,9 +15,13 @@ systems are usually latency bound, especially with small files.
 Parallel execution can help to utilize the bandwidth better and avoid that
 the latencies sum up, as this is the case in sequential operations.
 
-Currently, psync does only copy directory trees, similar to "cp -r". A "sync"
-mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALD.md) on how psync
-finally may look like.
+This version of psync implements a first version of the sync mode. In
+sync mode, a file or symbolic link is currently not copied if it exists on the
+destination side. WARNING: There is currently no check if the destination file/link has
+the same size, timestamp, content, or link destination. USE WITH CARE!
+
+A more versatile sync mode, similar to "rsync -rl" is planned.
+See GOALS.md on how psync finally may look like.
 
 Usage
 
@@ -43,11 +47,6 @@ Copy all files and subdirectories from /data/src into /data/dest.
 	psync -threads 8 /data/src /data/dest
 
 /data/src and /data/dest must exist and must be directories.
-
-WARNING: This version of psync implements a first version of the sync mode. In
-sync mode, a file or symbolic link is currently not copied if it exists on the
-destination side. There is currently no check if the destination file/link has
-the same size, timestamp, content, or link destination. USE WITH CARE!
 
 Why should I use it
 
