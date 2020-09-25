@@ -46,6 +46,7 @@ psync is invoked as follows:
 	-owner          - preserve ownership (user / group)
 	-times          - preserve timestamps (atime / mtime)
 	-create         - create destination directory, if needed (with standard permissions)
+	-sync           - sync mode, create directories or copy files that do not already exist
 	source          - source directory
 	destination     - destination directory
 
@@ -57,6 +58,11 @@ Copy all files and subdirectories from /data/src into /data/dest.
 	psync -threads 8 /data/src /data/dest
 
 /data/src and /data/dest must exist and must be directories.
+
+WARNING: This version of psync implements a first version of the sync mode. In
+sync mode, a file or symbolic link is currently not copied if it exists on the
+destination side. There is currently no check if the destination file/link has
+the same size, timestamp, content, or link destination. USE WITH CARE!
 
 Why should I use it
 -------------------
@@ -149,10 +155,12 @@ does only work when psync is running under the root user account. Preserving the
 time stamps does only work for regular files and directories, not for symbolic
 links.
 
-psync does currently implement a simple recursive copy, like "cp -r", and not
-a versatile sync algorithm like rsync. There is no check wether a file already
-exists in the destination, nor its content and timestamps. Existing files on the
-destination side are not deleted when they don't exist on the source side.
+This version of psync implements a first version of the sync mode. A directory
+is only create if it does not already exist on the destination side. For a regular
+file, if an entry exists on the destination side, the file is not copied, regardless
+of the type, size, or timestamp of the destination entry. Similarly, for a symbolic
+link, it is only created if there is no correspondig entry on the destination
+side present; regardless of type or link destination.
 
 psync is being developed under Linux (Debian, Ubuntu, CentOS). It should work on
 other distributions, but this has not been tested. It does currently not compile

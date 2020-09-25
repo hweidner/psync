@@ -1,4 +1,4 @@
-// Copyright 2018 by Harald Weidner <hweidner@gmx.net>. All rights reserved.
+// Copyright 2018-2020 by Harald Weidner <hweidner@gmx.net>. All rights reserved.
 // Use of this source code is governed by the GNU General Public License
 // Version 3 that can be found in the LICENSE.txt file.
 
@@ -26,13 +26,14 @@ var (
 	wg     sync.WaitGroup           // waitgroup for work queue length
 )
 
-// Commandline Flags
+// Commandline options and parameters
 var (
-	threads        uint   // number of threads
-	src, dest      string // source and destination directory
-	verbose, quiet bool   // verbose and quiet flags
-	times, owner   bool   // preserve timestamps and owner flag
-	create         bool   // create destination directory flag
+	src, dest            string // source and destination directory
+	optThreads           uint   // number of threads
+	optVerbose, optQuiet bool   // verbose and quiet flags
+	optTimes, optOwner   bool   // preserve timestamps and owner flag
+	optCreate            bool   // create destination directory flag
+	optSync              bool   // sync mode
 )
 
 func main() {
@@ -47,11 +48,11 @@ func main() {
 	syscall.Umask(0000)
 
 	// initialize buffers
-	buffer = make([][BUFSIZE]byte, threads)
+	buffer = make([][BUFSIZE]byte, optThreads)
 
 	// Start dispatcher and copy threads
 	go dispatcher()
-	for i := uint(0); i < threads; i++ {
+	for i := uint(0); i < optThreads; i++ {
 		go copyDir(i)
 	}
 
@@ -65,20 +66,21 @@ func main() {
 
 // Function flags parses the command line flags and checks them for sanity.
 func flags() {
-	flag.UintVar(&threads, "threads", 16, "Number of threads to run in parallel")
-	flag.BoolVar(&verbose, "verbose", false, "Verbose mode")
-	flag.BoolVar(&quiet, "quiet", false, "Quiet mode")
-	flag.BoolVar(&times, "times", false, "Preserve time stamps")
-	flag.BoolVar(&owner, "owner", false, "Preserve user/group ownership (root only)")
-	flag.BoolVar(&create, "create", false, "Create destination directory, if needed (with standard permissions)")
+	flag.UintVar(&optThreads, "threads", 16, "Number of threads to run in parallel")
+	flag.BoolVar(&optVerbose, "verbose", false, "Verbose mode")
+	flag.BoolVar(&optQuiet, "quiet", false, "Quiet mode")
+	flag.BoolVar(&optTimes, "times", false, "Preserve time stamps")
+	flag.BoolVar(&optOwner, "owner", false, "Preserve user/group ownership (root only)")
+	flag.BoolVar(&optCreate, "create", false, "Create destination directory, if needed (with standard permissions)")
+	flag.BoolVar(&optSync, "sync", false, "Run in sync mode, copy only files that do not exist on destination side (VERY LIMITED, USE WITH CARE)")
 	flag.Parse()
 
-	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || threads > 1024 {
+	if flag.NArg() != 2 || flag.Arg(0) == "" || flag.Arg(1) == "" || optThreads > 1024 {
 		usage()
 	}
 
-	if threads == 0 {
-		threads = 16
+	if optThreads == 0 {
+		optThreads = 16
 	}
 	src = flag.Arg(0)
 	dest = flag.Arg(1)
@@ -94,7 +96,7 @@ func usage() {
 // Function prepareDestDir checks for the existence of the destination,
 // or creates it if the flag '-create' is set.
 func prepareDestDir() {
-	if create {
+	if optCreate {
 		// create destination directory
 		err := os.MkdirAll(dest, os.FileMode(0777))
 		if err != nil {
@@ -150,18 +152,36 @@ func copyDir(id uint) {
 	for {
 		// read next directory to handle
 		dir := <-wch
-		if verbose {
+		if optVerbose {
 			fmt.Printf("[%d] Handling directory %s%s\n", id, src, dir)
 		}
 
-		// read directory content
+		// read content of source directory
 		files, err := ioutil.ReadDir(src + dir)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", src+dir, err)
 			}
 			wg.Done()
 			continue
+		}
+
+		// read content of destination directory, if needed
+		desthash := make(map[string]os.FileInfo)
+		if optSync {
+			destfiles, err := ioutil.ReadDir(dest + dir)
+			if err != nil {
+				if !optQuiet {
+					fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", dest+dir, err)
+				}
+				// Skip whole directory as it is unsafe to continue in non-sync mode
+				wg.Done()
+				continue
+			}
+			// hash destination files for fast access to filenames
+			for _, file := range destfiles {
+				desthash[file.Name()] = file
+			}
 		}
 
 		for _, f := range files {
@@ -171,46 +191,53 @@ func copyDir(id uint) {
 			}
 
 			if f.IsDir() {
-				// create directory on destination side
-				perm := f.Mode().Perm()
-				err := os.Mkdir(dest+dir+"/"+fname, perm)
-				if err != nil {
-					if !quiet {
-						fmt.Fprintf(os.Stderr, "WARNING - could not create directory %s: %s\n",
-							dest+dir+"/"+fname, err)
+				// entry is a directory. Create it on destination side, if needed
+				if !optSync || desthash[fname] == nil || !desthash[fname].IsDir() {
+					perm := f.Mode().Perm()
+					err := os.Mkdir(dest+dir+"/"+fname, perm)
+					if err != nil {
+						if !optQuiet {
+							fmt.Fprintf(os.Stderr, "WARNING - could not create directory %s: %s\n",
+								dest+dir+"/"+fname, err)
+						}
+						continue
 					}
-					continue
 				}
 
 				// submit directory to work queue
 				wg.Add(1)
 				dch <- dir + "/" + fname
-			} else {
-				// copy file sequentially
-				if verbose {
+				continue
+			}
+
+			// Entry is a file, symbolic link, or special file. Copy file sequentially
+			if !optSync || desthash[fname] == nil { // TODO: also copy if destination file exists but differs
+				if optVerbose {
 					fmt.Printf("[%d] Copying %s%s/%s to %s%s/%s\n",
 						id, src, dir, fname, dest, dir, fname)
 				}
 				copyFile(id, dir+"/"+fname, f)
 			}
 		}
+
+		// preserve ownership and/or timestamp destination directory
 		finfo, err := os.Stat(src + dir)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - could not read fileinfo of directory %s: %s\n",
 					dest+dir, err)
 			}
 		} else {
 			// preserve user and group of the destination directory
-			if owner {
+			if optOwner {
 				preserveOwner(dest+dir, finfo, "directory")
 			}
 			// setting the timestamps of the destination directory
-			if times {
+			if optTimes {
 				preserveTimes(dest+dir, finfo, "directory")
 			}
 		}
-		if verbose {
+		if optVerbose {
 			fmt.Printf("[%d] Finished directory %s%s\n", id, src, dir)
 		}
 		wg.Done()
@@ -226,7 +253,7 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		// read link
 		link, err := os.Readlink(src + file)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - link %s disappeared while copying %s\n", src+file, err)
 			}
 			return
@@ -235,14 +262,14 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		// write link to destination
 		err = os.Symlink(link, dest+file)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - link %s could not be created: %s\n", dest+file, err)
 			}
 			return
 		}
 
 		// preserve owner of symbolic link
-		if owner {
+		if optOwner {
 			preserveOwner(dest+file, f, "link")
 		}
 		// preserving the timestamps of links seems not be supported in Go
@@ -260,7 +287,7 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		// open source file for reading
 		rd, err := os.Open(src + file)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - file %s disappeared while copying: %s\n", src+file, err)
 			}
 			return
@@ -271,7 +298,7 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		perm := mode.Perm()
 		wr, err := os.OpenFile(dest+file, os.O_WRONLY|os.O_CREATE, perm)
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
 			}
 			return
@@ -281,16 +308,16 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		// copy data
 		_, err = io.CopyBuffer(wr, rd, buffer[id][:])
 		if err != nil {
-			if !quiet {
+			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - file %s could not be created: %s\n", dest+file, err)
 			}
 			return
 		}
 
-		if owner {
+		if optOwner {
 			preserveOwner(dest+file, f, "file")
 		}
-		if times {
+		if optTimes {
 			preserveTimes(dest+file, f, "file")
 		}
 
@@ -311,7 +338,7 @@ func preserveOwner(name string, f os.FileInfo, ftype string) {
 			err = os.Chown(name, uid, gid)
 		}
 
-		if err != nil && !quiet {
+		if err != nil && !optQuiet {
 			fmt.Fprintf(os.Stderr, "WARNING - could not change ownership of %s %s: %s\n",
 				ftype, name, err)
 		}
@@ -327,7 +354,7 @@ func preserveTimes(name string, f os.FileInfo, ftype string) {
 		atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
 	}
 	err := os.Chtimes(name, atime, mtime)
-	if err != nil && !quiet {
+	if err != nil && !optQuiet {
 		fmt.Fprintf(os.Stderr, "WARNING - could not change timestamps for %s %s: %s\n",
 			ftype, name, err)
 	}
