@@ -30,12 +30,15 @@ You need a Go compiler to install psync from source. Follow the instructions on
 the [Go Installation page](https://golang.org/doc/install), or install from your
 operating system distribution (e.g. ``apt install golang`` on Debian/Ubuntu Linux).
 
-Then install psync with
+Then build this branch of psync with
 
-	go get github.com/hweidner/psync
+	git clone https://github.com/hweidner/psync.git
+	cd psync
+	git checkout syncmode
+	go install
 
-This command will fetch psync, compile and install it in the directory
-$HOME/go/bin, or $GOPATH/bin if GOPATH is set.
+These commands will fetch psync, compile and install the ``syncmode`` branch
+into the directory $HOME/go/bin, or $GOPATH/bin if GOPATH is set.
 
 Usage
 -----
