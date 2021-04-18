@@ -253,7 +253,8 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		//}
 
 	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0: // special files
-	// TODO: not yet implemented
+		// TODO: not yet implemented
+		fmt.Fprintf(os.Stderr, "WARNING - %s: syncing of UNIX special files is not implemented yet.\n", src+file)
 
 	default:
 		// copy regular file

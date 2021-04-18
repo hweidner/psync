@@ -17,7 +17,8 @@ the latencies sum up, as this is the case in sequential operations.
 
 Currently, psync does only copy directory trees, similar to "cp -r". A "sync"
 mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALD.md) on how psync
-finally may look like.
+finally may look like. A first version of the sync mode can be found in the
+branch `syncmode`.
 
 Usage
 
@@ -113,6 +114,7 @@ Limits and TODOs
 
 psync currently can only handle directories, regular files, and symbolic links.
 Other filesystem entries like devices, sockets or named pipes are silently ignored.
+A warning is printed when trying to copy such special files.
 
 psync preserves the Unix permissions (rwx) of the copied files and directories,
 but has currently no support for preserving other permission bits (suid, sticky).
