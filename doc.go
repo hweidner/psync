@@ -16,9 +16,9 @@ Parallel execution can help to utilize the bandwidth better and avoid that
 the latencies sum up, as this is the case in sequential operations.
 
 Currently, psync does only copy directory trees, similar to "cp -r". A "sync"
-mode, similar to "rsync -rl" is planned. See [GOALS.md](GOALD.md) on how psync
-finally may look like. A first version of the sync mode can be found in the
-branch `syncmode`.
+mode, similar to "rsync -rl" is planned. See GOALS.md on how psync finally may
+look like. A first version of the sync mode can be found in the branch
+`syncmode`.
 
 Usage
 
@@ -106,9 +106,11 @@ The data is an extracted linux kernel source code 4.15.2 tarball, containing
 The options for the three commands are selected comparably. They copy the files
 and links recursively and preserve permissions, but no ownership or time stamps.
 
-    cp -r SRC DEST         1m50,288s   8,09 MB/s
-    rsync -rl SRC/ DEST/   3m05,479s   4,81 MB/s
-    psync SRC DEST         0m23,398s  38,12 MB/s
+    Command                Estimated time  Throughput
+    =================================================
+    cp -r SRC DEST              1m50,288s   8,09 MB/s
+    rsync -rl SRC/ DEST/        3m05,479s   4,81 MB/s
+    psync SRC DEST              0m23,398s  38,12 MB/s
 
 Limits and TODOs
 

@@ -36,8 +36,8 @@ Then install psync with
 This command will fetch psync, compile and install it in the directory
 $HOME/go/bin, or $GOPATH/bin if GOPATH is set.
 
-When working with Go 1.16, you might need to explicitely turn modules off
-by setting the environment variable GO111MODULE=off.
+When working with Go 1.16 or later, you might need to explicitely turn modules
+off by setting the environment variable GO111MODULE=off.
 
 Usage
 -----
@@ -62,7 +62,7 @@ Copy all files and subdirectories from /data/src into /data/dest.
 
 	psync -threads 8 /data/src /data/dest
 
-/data/src and /data/dest must exist and must be directories.
+`/data/src` and `/data/dest` must exist and must be directories.
 
 Why should I use it
 -------------------
@@ -136,9 +136,11 @@ The data is an extracted linux kernel source code 4.15.2 tarball, containing
 The options for the three commands are selected comparably. They copy the files
 and links recursively and preserve permissions, but no ownership or time stamps.
 
-    cp -r SRC DEST         1m50,288s   8,09 MB/s
-    rsync -rl SRC/ DEST/   3m05,479s   4,81 MB/s
-    psync SRC DEST         0m23,398s  38,12 MB/s
+	Command                Estimated time  Throughput
+	=================================================
+    cp -r SRC DEST              1m50,288s   8,09 MB/s
+    rsync -rl SRC/ DEST/        3m05,479s   4,81 MB/s
+    psync SRC DEST              0m23,398s  38,12 MB/s
 
 Limits and TODOs
 ----------------
