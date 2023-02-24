@@ -10,9 +10,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/hweidner/psync/infchan"
 )
 
 // BUFSIZE defines the size of the buffer used for copying. It is currently 64kB.
@@ -21,9 +24,9 @@ const BUFSIZE = 64 * 1024
 // Buffer, Channels and Synchronization
 var (
 	buffer [][BUFSIZE]byte
-	dch    = make(chan string, 100) // dispatcher channel - get work into work queue
-	wch    = make(chan string, 100) // worker channel - get work from work queue to copy thread
-	wg     sync.WaitGroup           // waitgroup for work queue length
+	dch    chan<- syncJob // dispatcher channel - get work into work queue
+	wch    <-chan syncJob // worker channel - get work from work queue to copy thread
+	wg     sync.WaitGroup // waitgroup for work queue length
 )
 
 // Commandline options and parameters
@@ -36,6 +39,21 @@ var (
 	optSync              bool   // sync mode
 )
 
+// jobType is a type flag that denotes the type of job.
+// currently implemented options are copy for copying files, and remove for deleting files.
+type jobType uint8
+
+const (
+	nopJob    jobType = iota // no operation - do nothing
+	copyJob                  // copy src directory to destination
+	removeJob                // delete destination directory
+)
+
+type syncJob struct {
+	dir string
+	jt  jobType
+}
+
 func main() {
 	// parse commandline flags
 	flags()
@@ -47,21 +65,33 @@ func main() {
 	// used in os.FileOpen()
 	syscall.Umask(0000)
 
+	// tweak garbage collection, unless overwritten by GOGC variable
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(500)
+	}
+
 	// initialize buffers
 	buffer = make([][BUFSIZE]byte, optThreads)
 
 	// Start dispatcher and copy threads
-	go dispatcher()
+	//go dispatcher()
 	for i := uint(0); i < optThreads; i++ {
 		go copyDir(i)
 	}
 
+	// create infinite channel for dispatching syncJobs
+	dch, wch = infchan.InfChan[syncJob](100, 100, false)
+
 	// start copying top level directory
 	wg.Add(1)
-	dch <- ""
+	dch <- syncJob{dir: "", jt: copyJob}
 
 	// wait for work queue to get empty
 	wg.Wait()
+
+	// close dispatcher channel
+	// currently disabled! copyDir must be altered to make it react on closed channels.
+	//close(dch)
 }
 
 // Function flags parses the command line flags and checks them for sanity.
@@ -121,39 +151,15 @@ func prepareDestDir() {
 	}
 }
 
-// Function dispatcher maintains a work list of potentially arbitrary size.
-// Incoming directories (over the dispather channel) will be forwarded to a
-// copy thread through the worker channel, or stored in the work list if no
-// copy thread is available. For easier memory handling, the work list is
-// treated last-in-first-out.
-func dispatcher() {
-	worklist := make([]string, 0, 1000)
-	var dir string
-	for {
-		if len(worklist) == 0 {
-			dir = <-dch
-			worklist = append(worklist, dir)
-		} else {
-			select {
-			case dir = <-dch:
-				worklist = append(worklist, dir)
-			case wch <- worklist[len(worklist)-1]:
-				worklist = worklist[:len(worklist)-1]
-			}
-		}
-	}
-}
-
 // Function copyDir receives a directory on the worker channel and copies its
 // content from src to dest. Files are copied sequentially. If a subdirectory
 // is discovered, it is created on the destination side, and then inserted into
 // the work queue through the dispatcher channel.
 func copyDir(id uint) {
-	for {
-		// read next directory to handle
-		dir := <-wch
+	for job := range wch {
+		dir := job.dir
 		if optVerbose {
-			fmt.Printf("[%d] Handling directory %s%s\n", id, src, dir)
+			fmt.Printf("[%d] Handling directory %s%s\n", id, src, job.dir)
 		}
 
 		// read content of source directory
@@ -184,11 +190,12 @@ func copyDir(id uint) {
 			}
 		}
 
+		// Pass 1 - create copyJobs for directories first, to keep the pipeline filled
 		for _, f := range files {
 			fname := f.Name()
-			if fname == "." || fname == ".." {
-				continue
-			}
+			// if fname == "." || fname == ".." {
+			// 	continue
+			// }
 
 			if f.IsDir() {
 				// entry is a directory. Create it on destination side, if needed
@@ -206,7 +213,18 @@ func copyDir(id uint) {
 
 				// submit directory to work queue
 				wg.Add(1)
-				dch <- dir + "/" + fname
+				dch <- syncJob{dir: dir + "/" + fname, jt: copyJob}
+				continue
+			}
+		}
+
+		// TODO: Pass 2 - create copyJobs to delete direcories in sync mode
+
+		// Pass 3 - copy files sequentially
+		for _, f := range files {
+			fname := f.Name()
+
+			if f.IsDir() {
 				continue
 			}
 
