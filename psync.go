@@ -8,7 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -163,7 +163,7 @@ func copyDir(id uint) {
 		}
 
 		// read content of source directory
-		files, err := ioutil.ReadDir(src + dir)
+		files, err := os.ReadDir(src + dir)
 		if err != nil {
 			if !optQuiet {
 				fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", src+dir, err)
@@ -173,9 +173,9 @@ func copyDir(id uint) {
 		}
 
 		// read content of destination directory, if needed
-		desthash := make(map[string]os.FileInfo)
+		desthash := make(map[string]fs.DirEntry)
 		if optSync {
-			destfiles, err := ioutil.ReadDir(dest + dir)
+			destfiles, err := os.ReadDir(dest + dir)
 			if err != nil {
 				if !optQuiet {
 					fmt.Fprintf(os.Stderr, "WARNING - could not read directory %s: %s\n", dest+dir, err)
@@ -192,16 +192,20 @@ func copyDir(id uint) {
 
 		// Pass 1 - create copyJobs for directories first, to keep the pipeline filled
 		for _, f := range files {
-			fname := f.Name()
-			// if fname == "." || fname == ".." {
-			// 	continue
-			// }
-
 			if f.IsDir() {
 				// entry is a directory. Create it on destination side, if needed
+				fname := f.Name()
+
 				if !optSync || desthash[fname] == nil || !desthash[fname].IsDir() {
-					perm := f.Mode().Perm()
-					err := os.Mkdir(dest+dir+"/"+fname, perm)
+					// determine permissions
+					fi, err := f.Info()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "WARNING - could not determine fileinfo of %s, operations on permissions might be wrong: %s\n",
+							dest+dir+"/"+fname, err)
+					}
+					perm := fi.Mode().Perm()
+
+					err = os.Mkdir(dest+dir+"/"+fname, perm)
 					if err != nil {
 						if !optQuiet {
 							fmt.Fprintf(os.Stderr, "WARNING - could not create directory %s: %s\n",
@@ -218,7 +222,8 @@ func copyDir(id uint) {
 			}
 		}
 
-		// TODO: Pass 2 - create copyJobs to delete direcories in sync mode
+		// Pass 2 - create copyJobs to delete direcories in sync mode
+		// TODO: not implemented yet
 
 		// Pass 3 - copy files sequentially
 		for _, f := range files {
@@ -263,8 +268,9 @@ func copyDir(id uint) {
 }
 
 // Function copyFile copies a file from the source to the destination directory.
-func copyFile(id uint, file string, f os.FileInfo) {
-	mode := f.Mode()
+func copyFile(id uint, file string, f fs.DirEntry) {
+	mode := f.Type()
+
 	switch {
 
 	case mode&os.ModeSymlink != 0: // symbolic link
@@ -288,8 +294,15 @@ func copyFile(id uint, file string, f os.FileInfo) {
 
 		// preserve owner of symbolic link
 		if optOwner {
-			preserveOwner(dest+file, f, "link")
+			fi, err := f.Info()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING - could not determine fileinfo of %s, cannot preserve owner or times: %s\n",
+					f.Name(), err)
+			} else {
+				preserveOwner(dest+file, fi, "link")
+			}
 		}
+
 		// preserving the timestamps of links seems not be supported in Go
 		// TODO: it should be possible by using the futimesat system call,
 		// see https://github.com/golang/go/issues/3951
@@ -313,7 +326,13 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		defer rd.Close()
 
 		// open destination file for writing
-		perm := mode.Perm()
+		fi, err := f.Info()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING - could not determine fileinfo of %s, operations on permissions might be wrong: %s\n",
+				file, err)
+		}
+		perm := fi.Mode().Perm()
+
 		wr, err := os.OpenFile(dest+file, os.O_WRONLY|os.O_CREATE, perm)
 		if err != nil {
 			if !optQuiet {
@@ -333,12 +352,11 @@ func copyFile(id uint, file string, f os.FileInfo) {
 		}
 
 		if optOwner {
-			preserveOwner(dest+file, f, "file")
+			preserveOwner(dest+file, fi, "file")
 		}
 		if optTimes {
-			preserveTimes(dest+file, f, "file")
+			preserveTimes(dest+file, fi, "file")
 		}
-
 	}
 }
 
@@ -371,6 +389,7 @@ func preserveTimes(name string, f os.FileInfo, ftype string) {
 	if stat, ok := f.Sys().(*syscall.Stat_t); ok {
 		atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
 	}
+
 	err := os.Chtimes(name, atime, mtime)
 	if err != nil && !optQuiet {
 		fmt.Fprintf(os.Stderr, "WARNING - could not change timestamps for %s %s: %s\n",
