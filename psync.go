@@ -63,7 +63,7 @@ func main() {
 
 	// clear umask, so that it does not interfere with explicite permissions
 	// used in os.FileOpen()
-	syscall.Umask(0000)
+	syscall.Umask(0o000)
 
 	// tweak garbage collection, unless overwritten by GOGC variable
 	if os.Getenv("GOGC") == "" {
@@ -74,7 +74,6 @@ func main() {
 	buffer = make([][BUFSIZE]byte, optThreads)
 
 	// Start dispatcher and copy threads
-	//go dispatcher()
 	for i := uint(0); i < optThreads; i++ {
 		go copyDir(i)
 	}
@@ -91,7 +90,7 @@ func main() {
 
 	// close dispatcher channel
 	// currently disabled! copyDir must be altered to make it react on closed channels.
-	//close(dch)
+	// close(dch)
 }
 
 // Function flags parses the command line flags and checks them for sanity.
@@ -128,7 +127,7 @@ func usage() {
 func prepareDestDir() {
 	if optCreate {
 		// create destination directory
-		err := os.MkdirAll(dest, os.FileMode(0777))
+		err := os.MkdirAll(dest, os.FileMode(0o777))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR - unable to create destination dir %s: %s\n", dest, err)
 			os.Exit(1)
@@ -218,7 +217,7 @@ func copyDir(id uint) {
 				// submit directory to work queue
 				wg.Add(1)
 				dch <- syncJob{dir: dir + "/" + fname, jt: copyJob}
-				continue
+				// continue
 			}
 		}
 
@@ -306,9 +305,9 @@ func copyFile(id uint, file string, f fs.DirEntry) {
 		// preserving the timestamps of links seems not be supported in Go
 		// TODO: it should be possible by using the futimesat system call,
 		// see https://github.com/golang/go/issues/3951
-		//if times {
-		//	preserveTimes(dest+file, f, "link")
-		//}
+		//  if times {
+		//  	preserveTimes(dest+file, f, "link")
+		//  }
 
 	case mode&(os.ModeDevice|os.ModeNamedPipe|os.ModeSocket) != 0: // special files
 	// TODO: not yet implemented
