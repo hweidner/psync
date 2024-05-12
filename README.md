@@ -2,7 +2,7 @@
 [![GoDocs](https://godocs.io/github.com/hweidner/psync?status.svg)](https://godocs.io/github.com/hweidner/psync)
 [![Go Reference](https://pkg.go.dev/badge/github.com/hweidner/psync.svg)](https://pkg.go.dev/github.com/hweidner/psync)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hweidner/psync)](https://goreportcard.com/report/github.com/hweidner/psync)
-[![Scc Count Badge](https://sloc.xyz/github.com/hweidner/psync)](https://github.com/hweidner/psync)
+[![Scc Count Badge](https://sloc.xyz/github/hweidner/psync)](https://github.com/hweidner/psync)
 
 Parallel Sync - parallel recursive copying of directories
 =========================================================
