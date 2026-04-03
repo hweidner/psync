@@ -4,8 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hweidner/psync)](https://goreportcard.com/report/github.com/hweidner/psync)
 [![Scc Count Badge](https://sloc.xyz/github/hweidner/psync)](https://github.com/hweidner/psync)
 
-Parallel Sync - parallel recursive copying of directories
-=========================================================
+# Parallel Sync - parallel recursive copying of directories
 
 psync is a tool which copies a directory recursively to another directory.
 Unlike "cp -r", which walks through the files and subdirectories in sequential
@@ -23,14 +22,13 @@ destination side. WARNING: There is currently no check if the destination file/l
 the same size, timestamp, content, or link destination. USE WITH CARE!
 
 A more versatile sync mode, similar to "rsync -rl" is planned.
-See [GOALS.md](GOALS.md) on how psync finally may look like.
+See the [goals document](GOALS.md) on how psync finally may look like.
 
-Installation
-------------
+## Installation
 
 You need a Go compiler to install psync from source. Follow the instructions on
 the [Go Installation page](https://golang.org/doc/install), or install from your
-operating system distribution (e.g. ``apt install golang`` on Debian/Ubuntu Linux).
+operating system distribution (e.g. `apt install golang` on Debian/Ubuntu Linux).
 
 Then build this branch of psync with
 
@@ -42,12 +40,11 @@ Then build this branch of psync with
 These commands will fetch psync, compile and install the ``syncmode`` branch
 into the directory $HOME/go/bin, or $GOPATH/bin if GOPATH is set.
 
-You can also use the Makefile and build psync using `make`. The Makefile is there
+You can also use the Makefile to build psync using `make`. The Makefile is there
 for the ease of development, it contains targets to build, test and run linting tools.
 It is not strictly needed for installing and using psync.
 
-Usage
------
+## Usage
 
 psync is invoked as follows:
 
@@ -63,8 +60,7 @@ psync is invoked as follows:
 	source          - source directory
 	destination     - destination directory
 
-Example
--------
+## Example
 
 Copy all files and subdirectories from /data/src into /data/dest.
 
@@ -72,8 +68,11 @@ Copy all files and subdirectories from /data/src into /data/dest.
 
 /data/src and /data/dest must exist and must be directories.
 
-Why should I use it
--------------------
+## Frequently asked question
+
+See the [FAQ](FAQ.md).
+
+## Why should I use it
 
 A recursive copy of a directory can be a throughput bound or latency bound
 operation, depending on the size of files and characteristics of the source
@@ -89,8 +88,7 @@ often limiting performance factor. With sequential copies, the operation can
 consume lots of time, although the bandwidth is not saturated. In this case, it
 can make up a significant performance boost if the files are copied in parallel.
 
-Where psync should not be used
-------------------------------
+## Where psync should not be used
 
 Parallel copying is typically not so useful when copying between local or
 very fast hard disks. psync can be used there, and with a moderate concurrency
@@ -106,8 +104,7 @@ are best written sequentially. Parallel write access will be slower, and leads
 to inefficient data structures and fragmentation. Reading from those file systems
 with psync should be efficient.
 
-How it works
-------------
+## How it works
 
 psync uses goroutines for copying files in parallel. By default, 16 copy workers
 are spawned as goroutines, but the number can be adjusted with the -threads switch.
@@ -118,8 +115,7 @@ directory. When subdirectories are discovered, they are created on the destinati
 side. Traversal of the subdirecory is then submitted to other workers and thus done
 in parallel to the current workload.
 
-Performance values
-------------------
+## Performance values
 
 Here are some performance values comparing psync to cp and rsync when copying
 a large directory structure with many small files from a local file system to
@@ -148,8 +144,7 @@ and links recursively and preserve permissions, but no ownership or time stamps.
     rsync -rl SRC/ DEST/   3m05,479s   4,81 MB/s
     psync SRC DEST         0m23,398s  38,12 MB/s
 
-Limits and TODOs
-----------------
+## Limits and TODOs
 
 psync currently can only handle directories, regular files, and symbolic links.
 Other filesystem entries like devices, sockets or named pipes are silently ignored.
@@ -175,13 +170,12 @@ other distributions, but this has not been tested. It does currently not compile
 for Windows, Darwin (MacOS), NetBSD and FreeBSD (but this should easily be
 fixed).
 
-Contributing
-------------
+## Contributing
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to the
 development of psync.
 
-License
--------
+## License
 
 psync is released under the terms of the GNU General Public License, version 3.
+See the [license file](LICENSE.txt) for details.
