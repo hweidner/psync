@@ -42,6 +42,10 @@ Then build this branch of psync with
 These commands will fetch psync, compile and install the ``syncmode`` branch
 into the directory $HOME/go/bin, or $GOPATH/bin if GOPATH is set.
 
+You can also use the Makefile and build psync using `make`. The Makefile is there
+for the ease of development, it contains targets to build, test and run linting tools.
+It is not strictly needed for installing and using psync.
+
 Usage
 -----
 
