@@ -50,10 +50,11 @@ version:
 
 # update linting tools
 toolupdate:
-	for tool in $(shell go tool | grep /); do \
+	for tool in $(shell go tool | grep / | cut -d "(" -f2 | cut -d ")" -f1); do \
 	  echo "Updating $$tool..."; \
 	  go get $$tool@latest; \
 	done
+	go mod tidy
 
 .PHONY: vet sec test cover clean version
 .PHONY: toolupdate
