@@ -4,7 +4,6 @@ VERSION   = $(shell git describe --always --dirty --tags)
 GOFLAGS   = -trimpath
 LDFLAGS   = -w -s
 GOFILES   = $(wildcard *.go)
-TIMESTAMP = $(shell date -Iseconds)
 
 all:		$(APP)
 
@@ -25,17 +24,15 @@ vet:
 sec:
 	go tool govulncheck -show verbose ./...
 	go tool gosec ./...
-	# go tool go-libyear --versions --releases go.mod   ## not needed as there are no external dependencies
 
 # run unit tests
 test:
-	go test
+	go test ./...
 
 # Coverage analysis
 cover:
 	go test -cover -coverprofile=coverage.out -v ./...
 	go tool cover -html=coverage.out
-
 
 # Cleanup
 clean:
@@ -46,7 +43,6 @@ clean:
 version:
 	@echo $(VERSION)
 	@go version
-
 
 # update linting tools
 toolupdate:
